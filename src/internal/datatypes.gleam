@@ -3,15 +3,16 @@ import gleam/dynamic/decode
 import gleam/option.{type Option}
 import internal/either.{type Either}
 
+// fixme
 /// see https://spec.open-rpc.org/#runtime-expression
-/// fixme
 type RTE =
   decode.Dynamic
 
-/// fixme
+// fixme
 type Any =
   decode.Dynamic
 
+/// see https://spec.open-rpc.org/#openrpc-object
 pub type Schema {
   Schema(
     openrpc: String,
@@ -23,6 +24,7 @@ pub type Schema {
   )
 }
 
+/// see https://spec.open-rpc.org/#info-object
 pub type Info {
   Info(
     title: String,
@@ -35,26 +37,30 @@ pub type Info {
 }
 
 // appears to have no null restrictions
+/// see https://spec.open-rpc.org/#contact-object
 pub type Contact {
   Contact(name: Option(String), url: Option(String), email: Option(String))
 }
 
+/// see https://spec.open-rpc.org/#license-object
 pub type License {
   License(name: String, url: Option(String))
 }
 
+/// see https://spec.open-rpc.org/#server-object
 pub type Server {
   Server(
     name: String,
     url: RTE,
     summary: Option(String),
     description: Option(String),
-    variables: Dict(String, ServerVariableObject),
+    variables: Dict(String, ServerVariable),
   )
 }
 
-pub type ServerVariableObject {
-  ServerVariableObject(
+/// see https://spec.open-rpc.org/#server-variable-object
+pub type ServerVariable {
+  ServerVariable(
     enum: Option(List(String)),
     default: String,
     description: Option(String),
@@ -65,21 +71,23 @@ pub type ServerVariableObject {
 pub type Method {
   Method(
     name: String,
-    tags: Option(Either(TagObject, ReferenceObject)),
+    tags: Option(Either(Tag, Reference)),
     summary: Option(String),
     description: Option(String),
     external_docs: Option(ExternalDoc),
-    params: List(Either(ContentDescriptor, ReferenceObject)),
-    result: Option(Either(ContentDescriptor, ReferenceObject)),
+    params: List(Either(ContentDescriptor, Reference)),
+    result: Option(Either(ContentDescriptor, Reference)),
     deprecated: Bool,
     servers: Option(List(Server)),
-    errors: Option(List(Either(Error, ReferenceObject))),
-    links: Option(List(Either(Link, ReferenceObject))),
+    errors: Option(List(Either(Error, Reference))),
+    links: Option(List(Either(Link, Reference))),
     param_structure: Option(ParamStructure),
-    examples: Option(Either(ExamplePairing, ReferenceObject)),
+    examples: Option(Either(ExamplePairing, Reference)),
   )
 }
 
+/// see https://spec.open-rpc.org/#method-object
+/// params field
 pub type ParamStructure {
   ByName
   ByPosition
@@ -117,13 +125,13 @@ pub type ExternalDoc {
 
 /// see https://spec.open-rpc.org/#reference-object
 /// and https://json-schema.org/draft-07/json-schema-core#rfc.section.8.3
-pub type ReferenceObject {
-  ReferenceObject(ref: String)
+pub type Reference {
+  Reference(ref: String)
 }
 
 /// see https://spec.open-rpc.org/#tag-object
-pub type TagObject {
-  TagObject(
+pub type Tag {
+  Tag(
     name: String,
     summary: Option(String),
     description: Option(String),
@@ -140,7 +148,7 @@ pub type Components {
     links: Dict(String, Link),
     errors: Dict(String, Error),
     example_pairings: Dict(String, ExamplePairing),
-    tags: Dict(String, TagObject),
+    tags: Dict(String, Tag),
   )
 }
 
@@ -178,7 +186,7 @@ pub type ExamplePairing {
     name: String,
     description: Option(String),
     summary: Option(String),
-    params: List(Either(Example, ReferenceObject)),
-    result: Either(Example, ReferenceObject),
+    params: List(Either(Example, Reference)),
+    result: Either(Example, Reference),
   )
 }
