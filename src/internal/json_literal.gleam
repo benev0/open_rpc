@@ -12,7 +12,7 @@ pub type JsonLiteral {
   JsonNull
 }
 
-fn json_decoder() -> decode.Decoder(JsonLiteral) {
+pub fn json_decoder() -> decode.Decoder(JsonLiteral) {
   use <- decode.recursive
   decode.one_of({ decode.string |> decode.map(JsonString) }, [
     decode.int |> decode.map(fn(num) { JsonNumber(Left(num)) }),
