@@ -2,6 +2,7 @@ import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/option.{type Option}
 import internal/either.{type Either}
+import internal/json_schema.{type JsonSchema}
 
 // fixme
 /// see https://spec.open-rpc.org/#runtime-expression
@@ -102,20 +103,10 @@ pub type ContentDescriptor {
     description: Option(String),
     // default false (nullable)
     required: Bool,
-    schema: JSONSchema,
+    schema: JsonSchema,
     // default false (nullable)
     deprecated: Bool,
   )
-}
-
-// very large and very cursed
-/// see https://spec.open-rpc.org/#schema-object
-/// todo: finish
-/// reading a meta-meta-model sucks
-/// also schema implicitly implies a ref
-/// also see https://json-schema.org/implementers
-pub type JSONSchema {
-  JSONSchema(title: String, type_: String)
 }
 
 /// see https://spec.open-rpc.org/#external-documentation-object
