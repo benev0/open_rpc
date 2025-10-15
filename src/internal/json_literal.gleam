@@ -20,7 +20,8 @@ fn json_decoder() -> decode.Decoder(JsonLiteral) {
     decode.bool |> decode.map(JsonBool),
     decode.list(json_decoder()) |> decode.map(JsonArray),
     decode.dict(decode.string, json_decoder()) |> decode.map(JsonObject),
-    // yes this is troll, but this should hold if all other decoders are valid
+    // yes this is troll, but this should hold if all other decoders are valid.
+    // Also, it rejects invalid json because... I guess the parser does that?
     decode.success(JsonNull),
   ])
 }

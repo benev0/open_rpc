@@ -26,7 +26,7 @@ pub fn json_literal_number_test() {
 
 pub fn json_literal_strign_test() {
   let data = "\"data\""
-  assert Ok(JsonString("data")) == echo json_literal.parse_json_literal(data)
+  assert Ok(JsonString("data")) == json_literal.parse_json_literal(data)
   let data = "\"\""
   assert Ok(JsonString("")) == json_literal.parse_json_literal(data)
 }
