@@ -9,13 +9,17 @@ pub type URIReference
 
 pub type URI
 
+// should be altered List -> Dict
 pub type Schema =
   List(Validation)
 
+// fields other than validation are actually meta properties
 pub type Draft7 {
   Draft7(
     id: URIReference,
+    // if unset inherited (do not process schema if unset (ie. schema root)
     schema: URI,
+    // overrides every element in a sub-schema in draft7 and below
     ref: URIReference,
     comment: String,
     validation: Schema,
@@ -83,7 +87,7 @@ pub type Validation {
   WriteOnly(Bool)
   Examples(List(JsonLiteral))
 
-  // special
+  // special (used when if but not then nor else)
   Noop
 }
 
@@ -241,27 +245,6 @@ fn property_names_decoder() -> Decoder(Validation) {
   schema_decoder() |> decode.map(AdditionalProperties)
 }
 
-fn if_then_else_decoder() -> Decoder(Validation) {
-  use if_ <- decode.then(schema_decoder())
-  use then <- decode.optional_field(
-    "then",
-    None,
-    decode.optional(schema_decoder()),
-  )
-  use else_ <- decode.optional_field(
-    "else",
-    None,
-    decode.optional(schema_decoder()),
-  )
-  case then, else_ {
-    Some(then_s), Some(else_s) ->
-      decode.success(IfThenElse(if_, then_s, else_s))
-    None, Some(else_s) -> decode.success(IfElse(if_, else_s))
-    Some(then_s), None -> decode.success(IfThen(if_, then_s))
-    None, None -> decode.success(Noop)
-  }
-}
-
 fn all_of_decoder() -> Decoder(Validation) {
   decode.list(schema_decoder()) |> decode.map(AllOf)
 }
@@ -318,6 +301,40 @@ fn examples_decoder() -> Decoder(Validation) {
   decode.list(json_literal.json_decoder()) |> decode.map(Examples)
 }
 
+fn if_then_else_decoder(
+  schema: Schema,
+  next: fn(Schema) -> Decoder(Schema),
+) -> Decoder(Schema) {
+  use if_ <- decode.optional_field(
+    "if",
+    None,
+    decode.optional(schema_decoder()),
+  )
+  use then <- decode.optional_field(
+    "then",
+    None,
+    decode.optional(schema_decoder()),
+  )
+  use else_ <- decode.optional_field(
+    "else",
+    None,
+    decode.optional(schema_decoder()),
+  )
+  let schema = case if_, then, else_ {
+    None, _, _ -> schema
+    Some(if_s), Some(then_s), Some(else_s) -> [
+      IfThenElse(if_s, then_s, else_s),
+      ..schema
+    ]
+    Some(if_s), None, Some(else_s) -> [IfElse(if_s, else_s), ..schema]
+    Some(if_s), Some(then_s), None -> [IfThen(if_s, then_s), ..schema]
+    _, None, None -> schema
+  }
+  next(schema)
+}
+
+// todo rename per schema edition. This is draft7. Other schemas will need to be
+// created. (draft3, draft4, draft6, 2019/9 2020/12)
 pub fn schema_decoder() -> Decoder(Schema) {
   use <- decode.recursive()
   let schema = []
@@ -387,7 +404,6 @@ pub fn schema_decoder() -> Decoder(Schema) {
     "propertyNames",
     property_names_decoder,
   )
-  use schema <- extend_schema_decoder(schema, "if", if_then_else_decoder)
   use schema <- extend_schema_decoder(schema, "allOf", all_of_decoder)
   use schema <- extend_schema_decoder(schema, "anyOf", any_of_decoder)
   use schema <- extend_schema_decoder(schema, "oneOf", one_of_decoder)
@@ -418,8 +434,7 @@ pub fn schema_decoder() -> Decoder(Schema) {
   use schema <- extend_schema_decoder(schema, "readOnly", read_only_decoder)
   use schema <- extend_schema_decoder(schema, "writeOnly", write_only_decoder)
   use schema <- extend_schema_decoder(schema, "examples", examples_decoder)
-
-  // special case for if, then, else (if only?)
+  use schema <- if_then_else_decoder(schema)
 
   decode.success(schema)
 }
