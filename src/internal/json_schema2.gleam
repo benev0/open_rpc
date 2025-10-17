@@ -1,6 +1,5 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode.{type Decoder}
-import gleam/list
 import gleam/option.{None, Some}
 import internal/either.{type Either}
 import internal/json_literal.{type JsonLiteral}
@@ -11,7 +10,7 @@ pub type URI
 
 // should be altered List -> Dict
 pub type Schema =
-  List(Validation)
+  Dict(String, Validation)
 
 // fields other than validation are actually meta properties
 pub type Draft7 {
@@ -24,6 +23,23 @@ pub type Draft7 {
     comment: String,
     validation: Schema,
   )
+}
+
+// Hayleigh style phantom crime
+type Compiled
+
+type NotCompiled
+
+pub opaque type SchemaVersion(compile_status) {
+  // add meta info here
+  SchemaCustom(Schema)
+
+  Schema2020(Schema)
+  Schema2019(Schema)
+  SchemaDraft7(Schema)
+  SchemaDraft6(Schema)
+  SchemaDraft4(Schema)
+  SchemaDraft3(Schema)
 }
 
 pub type Number =
@@ -128,7 +144,7 @@ pub fn extend_schema_decoder(
   use extended_schema <- decode.optional_field(
     field_name,
     schema,
-    lazy_decoder() |> decode.map(list.prepend(schema, _)),
+    lazy_decoder() |> decode.map(dict.insert(schema, field_name, _)),
   )
   next(extended_schema)
 }
@@ -322,12 +338,12 @@ fn if_then_else_decoder(
   )
   let schema = case if_, then, else_ {
     None, _, _ -> schema
-    Some(if_s), Some(then_s), Some(else_s) -> [
-      IfThenElse(if_s, then_s, else_s),
-      ..schema
-    ]
-    Some(if_s), None, Some(else_s) -> [IfElse(if_s, else_s), ..schema]
-    Some(if_s), Some(then_s), None -> [IfThen(if_s, then_s), ..schema]
+    Some(if_s), Some(then_s), Some(else_s) ->
+      dict.insert(schema, "if", IfThenElse(if_s, then_s, else_s))
+    Some(if_s), None, Some(else_s) ->
+      dict.insert(schema, "if", IfElse(if_s, else_s))
+    Some(if_s), Some(then_s), None ->
+      dict.insert(schema, "if", IfThen(if_s, then_s))
     _, None, None -> schema
   }
   next(schema)
@@ -337,7 +353,7 @@ fn if_then_else_decoder(
 // created. (draft3, draft4, draft6, 2019/9 2020/12)
 pub fn schema_decoder() -> Decoder(Schema) {
   use <- decode.recursive()
-  let schema = []
+  let schema = dict.new()
   use schema <- extend_schema_decoder(schema, "type", type_decoder)
   use schema <- extend_schema_decoder(schema, "enum", enum_decoder)
   use schema <- extend_schema_decoder(schema, "const", const_decoder)
