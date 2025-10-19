@@ -1,45 +1,106 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode.{type Decoder}
-import gleam/option.{None, Some}
+import gleam/json
+import gleam/option.{type Option, None, Some}
 import internal/either.{type Either}
 import internal/json_literal.{type JsonLiteral}
 
 pub type URIReference
 
-pub type URI
+pub type URI =
+  String
 
 // should be altered List -> Dict
 pub type Schema =
   Dict(String, Validation)
 
-// fields other than validation are actually meta properties
-pub type Draft7 {
-  Draft7(
-    id: URIReference,
-    // if unset inherited (do not process schema if unset (ie. schema root)
-    schema: URI,
-    // overrides every element in a sub-schema in draft7 and below
-    ref: URIReference,
-    comment: String,
-    validation: Schema,
+// Hayleigh style phantom crime
+pub type RefFull
+
+pub type RefFree
+
+pub type SchemaVersionBuilder {
+  SchemaVersionBuilder(
+    version: URI,
+    internal_decoder: Decoder(Schema),
+    resolve_refs: fn(SchemaVersion(RefFull)) -> SchemaVersion(RefFree),
+    validate: fn(SchemaVersion(RefFree)) -> Bool,
+    next: Option(SchemaVersionBuilder),
+    // may need head
   )
 }
 
-// Hayleigh style phantom crime
-type Compiled
+pub opaque type SchemaVersion(process_status) {
+  SchemaVersion(
+    schema_data: Schema,
+    version: URI,
+    resolve_refs: fn(SchemaVersion(RefFull)) -> SchemaVersion(RefFree),
+    validate: fn(SchemaVersion(RefFree)) -> Bool,
+  )
+}
 
-type NotCompiled
+pub fn get_schema_version_uri(schema_version: SchemaVersion(_)) -> URI {
+  schema_version.version
+}
 
-pub opaque type SchemaVersion(compile_status) {
-  // add meta info here
-  SchemaCustom(Schema)
+pub fn add_new_schema_version_to_builder(
+  head: Option(SchemaVersionBuilder),
+  version: URI,
+  internal_decoder: _,
+  resolve_refs: _,
+  validate: _,
+) -> SchemaVersionBuilder {
+  SchemaVersionBuilder(
+    version:,
+    internal_decoder:,
+    resolve_refs:,
+    validate:,
+    next: head,
+  )
+}
 
-  Schema2020(Schema)
-  Schema2019(Schema)
-  SchemaDraft7(Schema)
-  SchemaDraft6(Schema)
-  SchemaDraft4(Schema)
-  SchemaDraft3(Schema)
+pub fn construct_schema_version_with_builder(
+  data: String,
+  builder: SchemaVersionBuilder,
+  default: URI,
+) -> Option(SchemaVersion(a)) {
+  let id_decode = {
+    use id <- decode.optional_field("$id", None, decode.optional(decode.string))
+    decode.success(id)
+  }
+
+  // todo: keep error intact
+  let uri_target = case json.parse(data, id_decode) {
+    Ok(Some(uri)) -> uri
+    _ -> default
+  }
+
+  case get_builder(builder, uri_target) {
+    None -> None
+    Some(specific_builder) -> {
+      case json.parse(data, specific_builder.internal_decoder) {
+        Error(_) -> None
+        Ok(data) ->
+          Some(SchemaVersion(
+            data,
+            uri_target,
+            specific_builder.resolve_refs,
+            specific_builder.validate,
+          ))
+      }
+    }
+  }
+}
+
+fn get_builder(
+  builder: SchemaVersionBuilder,
+  uri: URI,
+) -> Option(SchemaVersionBuilder) {
+  case builder.next {
+    _ if builder.version == uri -> Some(builder)
+    Some(n) -> get_builder(n, uri)
+    None -> None
+  }
 }
 
 pub type Number =
