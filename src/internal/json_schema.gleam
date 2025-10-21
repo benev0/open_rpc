@@ -1,11 +1,13 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/json
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import internal/either.{type Either}
 import internal/json_literal.{type JsonLiteral}
 
-pub type URIReference
+pub type URIReference =
+  String
 
 pub type URI =
   String
@@ -23,8 +25,9 @@ pub type SchemaVersionBuilder {
   SchemaVersionBuilder(
     version: URI,
     internal_decoder: Decoder(Schema),
-    resolve_refs: fn(SchemaVersion(RefFull)) -> SchemaVersion(RefFree),
-    validate: fn(SchemaVersion(RefFree)) -> Bool,
+    resolve_refs: fn(SchemaVersion(RefFull), SchemaVersionBuilder) ->
+      SchemaVersion(RefFree),
+    validate: fn(SchemaVersion(RefFree), SchemaVersionBuilder) -> Bool,
     next: Option(SchemaVersionBuilder),
     // may need head
   )
@@ -59,6 +62,18 @@ pub fn add_new_schema_version_to_builder(
   )
 }
 
+pub fn add_draft7_to_builder(
+  head: Option(SchemaVersionBuilder),
+) -> SchemaVersionBuilder {
+  SchemaVersionBuilder(
+    version: "http://json-schema.org/draft-07/schema#",
+    internal_decoder: draft7_schema_decoder(),
+    resolve_refs: draft7_resolve_refs,
+    validate: draft7_validator,
+    next: head,
+  )
+}
+
 pub fn construct_schema_version_with_builder(
   data: String,
   builder: SchemaVersionBuilder,
@@ -81,12 +96,14 @@ pub fn construct_schema_version_with_builder(
       case json.parse(data, specific_builder.internal_decoder) {
         Error(_) -> None
         Ok(data) ->
-          Some(SchemaVersion(
-            data,
-            uri_target,
-            specific_builder.resolve_refs,
-            specific_builder.validate,
-          ))
+          Some(
+            SchemaVersion(
+              data,
+              uri_target,
+              specific_builder.resolve_refs(_, builder),
+              specific_builder.validate(_, builder),
+            ),
+          )
       }
     }
   }
@@ -117,7 +134,10 @@ pub type Type {
 
 // currently only the 2017 properties
 // https://www.learnjsonschema.com/draft7
+// swap to support Schema -> SchemaVersion
 pub type Validation {
+  Ref(URIReference)
+
   Type(Either(Type, List(Type)))
   Enum(List(JsonLiteral))
   Const(JsonLiteral)
@@ -262,12 +282,12 @@ fn pattern_decoder() -> Decoder(Validation) {
 }
 
 fn items_decoder() -> Decoder(Validation) {
-  either_decoder(schema_decoder(), decode.list(schema_decoder()))
+  either_decoder(draft7_schema_decoder(), decode.list(draft7_schema_decoder()))
   |> decode.map(Items)
 }
 
 fn additional_items_decoder() -> Decoder(Validation) {
-  schema_decoder() |> decode.map(AdditionalItems)
+  draft7_schema_decoder() |> decode.map(AdditionalItems)
 }
 
 fn max_items_decoder() -> Decoder(Validation) {
@@ -283,7 +303,7 @@ fn unique_items_decoder() -> Decoder(Validation) {
 }
 
 fn contains_decoder() -> Decoder(Validation) {
-  schema_decoder() |> decode.map(Contains)
+  draft7_schema_decoder() |> decode.map(Contains)
 }
 
 fn max_properties_decoder() -> Decoder(Validation) {
@@ -299,43 +319,44 @@ fn required_decoder() -> Decoder(Validation) {
 }
 
 fn properties_decoder() -> Decoder(Validation) {
-  decode.dict(decode.string, schema_decoder()) |> decode.map(Properties)
+  decode.dict(decode.string, draft7_schema_decoder()) |> decode.map(Properties)
 }
 
 fn pattern_properties_decoder() -> Decoder(Validation) {
-  decode.dict(decode.string, schema_decoder()) |> decode.map(PatternProperties)
+  decode.dict(decode.string, draft7_schema_decoder())
+  |> decode.map(PatternProperties)
 }
 
 fn additional_properties_decoder() -> Decoder(Validation) {
-  schema_decoder() |> decode.map(AdditionalProperties)
+  draft7_schema_decoder() |> decode.map(AdditionalProperties)
 }
 
 fn dependencies_decoder() -> Decoder(Validation) {
   decode.dict(
     decode.string,
-    either_decoder(schema_decoder(), decode.list(decode.string)),
+    either_decoder(draft7_schema_decoder(), decode.list(decode.string)),
   )
   |> decode.map(Dependencies)
 }
 
 fn property_names_decoder() -> Decoder(Validation) {
-  schema_decoder() |> decode.map(AdditionalProperties)
+  draft7_schema_decoder() |> decode.map(AdditionalProperties)
 }
 
 fn all_of_decoder() -> Decoder(Validation) {
-  decode.list(schema_decoder()) |> decode.map(AllOf)
+  decode.list(draft7_schema_decoder()) |> decode.map(AllOf)
 }
 
 fn any_of_decoder() -> Decoder(Validation) {
-  decode.list(schema_decoder()) |> decode.map(AnyOf)
+  decode.list(draft7_schema_decoder()) |> decode.map(AnyOf)
 }
 
 fn one_of_decoder() -> Decoder(Validation) {
-  decode.list(schema_decoder()) |> decode.map(OneOf)
+  decode.list(draft7_schema_decoder()) |> decode.map(OneOf)
 }
 
 fn not_decoder() -> Decoder(Validation) {
-  schema_decoder() |> decode.map(Not)
+  draft7_schema_decoder() |> decode.map(Not)
 }
 
 fn format_decoder() -> Decoder(Validation) {
@@ -351,7 +372,7 @@ fn content_media_type_decoder() -> Decoder(Validation) {
 }
 
 fn definitions_decoder() -> Decoder(Validation) {
-  decode.dict(decode.string, schema_decoder()) |> decode.map(Definitions)
+  decode.dict(decode.string, draft7_schema_decoder()) |> decode.map(Definitions)
 }
 
 fn title_decoder() -> Decoder(Validation) {
@@ -385,17 +406,17 @@ fn if_then_else_decoder(
   use if_ <- decode.optional_field(
     "if",
     None,
-    decode.optional(schema_decoder()),
+    decode.optional(draft7_schema_decoder()),
   )
   use then <- decode.optional_field(
     "then",
     None,
-    decode.optional(schema_decoder()),
+    decode.optional(draft7_schema_decoder()),
   )
   use else_ <- decode.optional_field(
     "else",
     None,
-    decode.optional(schema_decoder()),
+    decode.optional(draft7_schema_decoder()),
   )
   let schema = case if_, then, else_ {
     None, _, _ -> schema
@@ -410,11 +431,17 @@ fn if_then_else_decoder(
   next(schema)
 }
 
+// todo: should be using a uri reference decoder
+fn ref_decoder() -> Decoder(Validation) {
+  decode.string |> decode.map(Ref)
+}
+
 // todo rename per schema edition. This is draft7. Other schemas will need to be
 // created. (draft3, draft4, draft6, 2019/9 2020/12)
-pub fn schema_decoder() -> Decoder(Schema) {
+pub fn draft7_schema_decoder() -> Decoder(Schema) {
   use <- decode.recursive()
   let schema = dict.new()
+  use schema <- extend_schema_decoder(schema, "$ref", ref_decoder)
   use schema <- extend_schema_decoder(schema, "type", type_decoder)
   use schema <- extend_schema_decoder(schema, "enum", enum_decoder)
   use schema <- extend_schema_decoder(schema, "const", const_decoder)
@@ -514,4 +541,29 @@ pub fn schema_decoder() -> Decoder(Schema) {
   use schema <- if_then_else_decoder(schema)
 
   decode.success(schema)
+}
+
+// todo don't just drop the refs
+pub fn draft7_resolve_refs(
+  schema: SchemaVersion(RefFull),
+  _builder: SchemaVersionBuilder,
+) -> SchemaVersion(RefFree) {
+  let _ref = dict.get(schema.schema_data, "$ref")
+  let new_data = dict.delete(schema.schema_data, "$ref")
+  SchemaVersion(..schema, schema_data: new_data)
+}
+
+pub fn draft7_validator(
+  schema: SchemaVersion(RefFree),
+  _builder: SchemaVersionBuilder,
+) -> Bool {
+  dict_all(schema.schema_data, fn(_, _) { True })
+}
+
+pub fn dict_all(over: Dict(k, v), with: fn(k, v) -> Bool) -> Bool {
+  dict.to_list(over)
+  |> list.all(fn(t) {
+    let #(k, v) = t
+    with(k, v)
+  })
 }

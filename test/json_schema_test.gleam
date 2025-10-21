@@ -6,7 +6,7 @@ import internal/json_schema
 
 pub fn decode_empty_test() {
   let data = "{}"
-  assert Ok(dict.new()) == json.parse(data, json_schema.schema_decoder())
+  assert Ok(dict.new()) == json.parse(data, json_schema.draft7_schema_decoder())
 }
 
 pub fn decode_const_test() {
@@ -16,7 +16,7 @@ pub fn decode_const_test() {
         #("const", json_schema.Const(json_literal.JsonBool(True))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 }
 
 pub fn decode_type_test() {
@@ -26,7 +26,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.NullType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": \"boolean\" }"
   assert Ok(
@@ -34,7 +34,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.BooleanType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": \"object\" }"
   assert Ok(
@@ -42,7 +42,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.ObjectType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": \"array\" }"
   assert Ok(
@@ -50,7 +50,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.ArrayType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": \"number\" }"
   assert Ok(
@@ -58,7 +58,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.NumberType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": \"string\" }"
   assert Ok(
@@ -66,7 +66,7 @@ pub fn decode_type_test() {
         #("type", json_schema.Type(either.Left(json_schema.StringType))),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": [\"string\", \"boolean\"] }"
   assert Ok(
@@ -79,11 +79,11 @@ pub fn decode_type_test() {
         ),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"type\": [] }"
   assert Ok(dict.from_list([#("type", json_schema.Type(either.Right([])))]))
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 }
 
 pub fn decode_if_then_else_test() {
@@ -91,13 +91,13 @@ pub fn decode_if_then_else_test() {
   assert Ok(
       dict.from_list([#("if", json_schema.IfThen(dict.new(), dict.new()))]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"if\": { }, \"else\": { } }"
   assert Ok(
       dict.from_list([#("if", json_schema.IfElse(dict.new(), dict.new()))]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"if\": { }, \"then\": { }, \"else\": { } }"
   assert Ok(
@@ -105,13 +105,13 @@ pub fn decode_if_then_else_test() {
         #("if", json_schema.IfThenElse(dict.new(), dict.new(), dict.new())),
       ]),
     )
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"then\": { }, \"else\": { } }"
   assert Ok(dict.from_list([]))
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 
   let data = "{ \"if\": { } }"
   assert Ok(dict.from_list([]))
-    == json.parse(data, json_schema.schema_decoder())
+    == json.parse(data, json_schema.draft7_schema_decoder())
 }
