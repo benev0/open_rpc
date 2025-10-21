@@ -1,5 +1,10 @@
 # open_rpc
 
+> [!NOTE]
+> Project WIP.
+
+Implication of the OpenRPC spec.
+
 [![Package Version](https://img.shields.io/hexpm/v/open_rpc)](https://hex.pm/packages/open_rpc)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/open_rpc/)
 

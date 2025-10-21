@@ -2,7 +2,7 @@ import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/option.{type Option}
 import internal/either.{type Either}
-import internal/json_schema.{type JsonSchema}
+import internal/json_schema.{type RefFree, type SchemaVersion}
 
 // fixme
 /// see https://spec.open-rpc.org/#runtime-expression
@@ -103,7 +103,7 @@ pub type ContentDescriptor {
     description: Option(String),
     // default false (nullable)
     required: Bool,
-    schema: JsonSchema,
+    schema: SchemaVersion(RefFree),
     // default false (nullable)
     deprecated: Bool,
   )
